@@ -10,7 +10,7 @@ using namespace std;
 unordered_map<string,vector<string>> txp; // to store key(txids) value(array of parent_txids) pairs in map
 unordered_map<string,pair<ll,ll>> txwf; // to store (txids,(fee,weight)) pairs
 set<string> visited; // to keep track of txids which we already have considered
-vector<pair<string,vector<string>>> vect; // to store txp map in descending order of the parent_txids array size.
+vector<pair<string,pair<ll,ll>>> vect; // to store txwf map in descending order of the fee/weight ratio.
 
 ll W = 4000000; // maximum block weight
 
@@ -36,9 +36,9 @@ ll stringToInt(string s){
     return x;
 }
 
-// function comp which helps in sorting txp map in descending order of their parent-array-size
-bool comp(pair<string,vector<string>>&a, pair<string,vector<string>>&b){
-    return a.second.size() > b.second.size();
+// function comp which helps in sorting txwf map in descending order of fee/weight ratio.
+bool comp(pair<string,pair<ll,ll>>&a, pair<string,pair<ll,ll>>&b){
+    return a.second.first/a.second.second > b.second.first/b.second.second;
 }
 
 int main()
@@ -81,30 +81,32 @@ int main()
     txp.erase("");
     ip.close();
 
-    // to sort txp map on basis of parent-array-size in descending order.
-    for(auto i : txp) vect.push_back(i);
+    // to sort txwf map on basis of fee/weight ratio in descending order.
+    for(auto i : txwf) vect.push_back(i);
     sort(vect.begin(),vect.end(),comp);
 
     // main solution to get desirable txids and print them in block.txt file
-    // the approach implemented is that start from that txid which has maximum number of parents_txid
+    // the approach implemented is that start from that txid which has maximum fee/weight ratio
     // and then check its parents whether they has any parent or not.
-    // it is similar to bfs but here we will start from the node which has maximum number of 
-    // parent transactions and will track the order using eleQ & ans side by side so that
+    // We will track the order using eleQ & ans side by side so that
     // parent transaction can come before the its children transaction.
     ofstream f;
     f.open("block.txt",ios::out);
 
     ll total_weight = 0;
+    ll total_fee = 0;
     
     for(auto i : vect){
         if(visited.find(i.first)==visited.end()){
             ll local_weight = 0;
+            ll local_fee = 0;
             set<string> eleQ;
             vector<string> ans;
             queue<string> q;
             q.push(i.first);
             eleQ.insert(i.first);
             auto fw = txwf.find(i.first);
+            local_fee += fw->second.first;
             local_weight += fw->second.second;
             ans.push_back(i.first);
             while(!q.empty()){
@@ -118,21 +120,25 @@ int main()
                             eleQ.insert(op);
                             ans.push_back(op);
                             auto FW = txwf.find(op);
+                            local_fee += FW->second.first;
                             local_weight += FW->second.second;
                             q.push(op);
                         }
                     }
                 }
             }
-            if(local_weight + total_weight < W){
+            if((local_weight + total_weight) < W && (local_fee + total_fee) > total_fee){
                 total_weight += local_weight;
+                total_fee += local_fee;
                 for (auto it = ans.rbegin(); it != ans.rend(); ++it){
                     f << *it << endl;
                 }
             }
         }
     }
-    // cout<<total_weight;
+    
+    cout<<"Total Weight: "<<total_weight<<"\nTotal Fee: "<<total_fee;
+
     f.close();
     return 0;
 }
